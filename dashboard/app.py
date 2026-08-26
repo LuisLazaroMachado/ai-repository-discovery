@@ -25,6 +25,14 @@ from src.recommender import (
     recommend_hybrid,
 )
 
+from src.recommender import (
+    get_repository_row,
+    load_catalog,
+    prepare_recommender,
+    recommend_by_preferences,
+    recommend_hybrid,
+    recommend_svd,          # <-- nuevo
+)
 
 st.set_page_config(
     page_title="AI Repository Discovery",
@@ -286,6 +294,18 @@ def render_hybrid_recommender_tab() -> None:
         "Empieza seleccionando un lenguaje o escribe parte del nombre. Las recomendaciones se ordenan de mayor a menor afinidad."
     )
 
+    ranking_mode = st.radio(
+        "Método de recomendación",
+        ["Híbrido (contenido + PCA + clúster)", "SVD (similitud por topics)"],
+        help="El modo híbrido combina varias señales. El modo SVD prioriza similitud estructural por topics compartidos.",
+    )
+    if ranking_mode == "SVD (similitud por topics)":
+        st.caption(
+            "Nota: la evaluación offline de este modo usa como métrica de relevancia los topics compartidos, "
+            "la misma señal con la que se construye el SVD. Interprétalo como validación de coherencia interna, "
+            "no como comparación neutral frente al modo híbrido."
+        )
+
     filtered_catalog = repository_filters(catalog)
     if filtered_catalog.empty:
         st.warning("No hay repositorios con los filtros seleccionados.")
@@ -305,8 +325,10 @@ def render_hybrid_recommender_tab() -> None:
     selected_cluster = int(recommender["clusters"][selected_index])
     render_repository_card(selected_row, selected_cluster)
 
-    recommendations = recommend_hybrid(selected_repository, top_n=top_n, recommender=recommender)
-
+    if ranking_mode == "SVD (similitud por topics)":
+        recommendations = recommend_svd(selected_repository, top_n=top_n, recommender=recommender)
+    else:
+        recommendations = recommend_hybrid(selected_repository, top_n=top_n, recommender=recommender)
     st.subheader("Recomendaciones principales")
     if recommendations.empty:
         st.warning("No se encontraron recomendaciones.")

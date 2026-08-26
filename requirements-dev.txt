@@ -1,0 +1,9 @@
+matplotlib
+plotly
+seaborn
+missingno
+tensorflow
+keras
+jupyter
+ipykernel
+ipywidgets

@@ -12,6 +12,7 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.decomposition import TruncatedSVD 
 from sklearn.preprocessing import (
     MinMaxScaler,
     MultiLabelBinarizer,
@@ -232,6 +233,11 @@ def prepare_recommender(catalog: Optional[pd.DataFrame] = None) -> Dict[str, obj
 
     feature_matrix = hstack([numeric_matrix, language_matrix, topic_matrix], format="csr")
 
+    svd = TruncatedSVD(n_components=10, random_state=42)
+    svd_latent = svd.fit_transform(topic_matrix)
+    svd_latent_norm = normalize(svd_latent, norm="l2", axis=1)
+    svd_similarity = cosine_similarity(svd_latent_norm).astype(np.float32)
+
     if has_precomputed_pca:
         latent_matrix = dataframe[pca_columns].astype(float).to_numpy()
         if has_precomputed_clusters:
@@ -283,6 +289,7 @@ def prepare_recommender(catalog: Optional[pd.DataFrame] = None) -> Dict[str, obj
         "content_similarity": content_similarity,
         "latent_matrix": latent_matrix,
         "latent_similarity": latent_similarity,
+        "svd_similarity": svd_similarity,          # <-- nueva
         "clusters": dataframe["cluster_kmeans"].to_numpy(),
         "cluster_names": cluster_names,
         "popularity_score": popularity_score,
@@ -380,6 +387,39 @@ def recommend_hybrid(
 
     return pd.DataFrame(rows)
 
+def recommend_svd(
+    repository_name: str,
+    top_n: int = 10,
+    recommender: Optional[Dict[str, object]] = None,
+) -> pd.DataFrame:
+    state = _get_recommender_state(recommender)
+    catalog = state["catalog"]
+    matches = catalog.index[catalog["nombre"] == repository_name].tolist()
+    if not matches:
+        return pd.DataFrame()
+    query_idx = matches[0]
+    svd_scores = state["svd_similarity"][query_idx].copy()
+    svd_scores[query_idx] = -np.inf
+    ranked_indices = np.argsort(svd_scores)[::-1][:top_n]
+    selected_topics = set(catalog.iloc[query_idx]["topics_list"])
+    rows = []
+    for position, candidate_idx in enumerate(ranked_indices, start=1):
+        candidate = catalog.iloc[candidate_idx]
+        candidate_topics = set(candidate["topics_list"])
+        shared_topics = sorted(selected_topics.intersection(candidate_topics))
+        rows.append(
+            {
+                "Posición": position,
+                "Repositorio recomendado": candidate["nombre"],
+                "Score SVD": round(float(svd_scores[candidate_idx]), 4),
+                "Lenguaje": candidate["lenguaje"],
+                "Estrellas": int(candidate["stars"]),
+                "Forks": int(candidate["forks"]),
+                "Topics compartidos": ", ".join(shared_topics) if shared_topics else "",
+                "URL": candidate.get("url", ""),
+            }
+        )
+    return pd.DataFrame(rows)
 
 def recommend_by_preferences(
     language: Optional[str] = None,
