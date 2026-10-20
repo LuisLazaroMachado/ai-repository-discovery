@@ -11,9 +11,9 @@ from pyvis.network import Network
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-EDGE_LIST_PATH = PROJECT_ROOT / "artifacts" / "W12" / "w12_edge_list.csv"
-CENTRALITY_PATH = PROJECT_ROOT / "artifacts" / "W12" / "w12_centrality_ranking.csv"
-PAGERANK_STARS_PATH = PROJECT_ROOT / "artifacts" / "W12" / "w12_pagerank_vs_stars.csv"
+EDGE_LIST_PATH = PROJECT_ROOT / "artifacts" / "graph" / "edge_list.csv"
+CENTRALITY_PATH = PROJECT_ROOT / "artifacts" / "graph" / "centrality_ranking.csv"
+PAGERANK_STARS_PATH = PROJECT_ROOT / "artifacts" / "graph" / "pagerank_vs_stars.csv"
 
 def _require_path(path: Path) -> None:
     if not path.exists():

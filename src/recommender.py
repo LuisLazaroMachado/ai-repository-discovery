@@ -23,7 +23,7 @@ from sklearn.preprocessing import (
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-W10_ARTIFACT_PATH = PROJECT_ROOT / "artifacts" / "W10" / "repos_with_pca_kmeans_w10.csv"
+CLUSTERED_CATALOG_PATH = PROJECT_ROOT / "artifacts" / "recommendation" / "repos_clustered.csv"
 CATALOG_PATH = PROJECT_ROOT / "data" / "processed" / "repos_clean.csv"
 
 TOPIC_COUNT = 30
@@ -133,13 +133,13 @@ def _prepare_base_catalog(dataframe: pd.DataFrame) -> pd.DataFrame:
 
 @lru_cache(maxsize=1)
 def load_catalog() -> pd.DataFrame:
-    if W10_ARTIFACT_PATH.exists():
-        dataframe = pd.read_csv(W10_ARTIFACT_PATH)
+    if CLUSTERED_CATALOG_PATH.exists():
+        dataframe = pd.read_csv(CLUSTERED_CATALOG_PATH)
     elif CATALOG_PATH.exists():
         dataframe = pd.read_csv(CATALOG_PATH)
     else:
         raise FileNotFoundError(
-            "No se encontró ni artifacts/W10/repos_with_pca_kmeans_w10.csv ni data/processed/repos_clean.csv"
+            "No se encontró ni artifacts/recommendation/repos_clustered.csv ni data/processed/repos_clean.csv"
         )
 
     return _prepare_base_catalog(dataframe)

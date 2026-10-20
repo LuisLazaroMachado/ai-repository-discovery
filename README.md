@@ -12,7 +12,7 @@ Explorar un catálogo de repositorios de IA mediante:
 ## Arquitectura
 
 * `src/recommender.py`: carga del catálogo, preparación de features, ranking híbrido y recomendación.
-* `src/graph_service.py`: carga del grafo W12, centralidades y subgrafo interactivo con PyVis.
+* `src/graph_service.py`: carga del grafo, centralidades y subgrafo interactivo con PyVis.
 * `dashboard/app.py`: interfaz Streamlit con dos secciones: Recomendador y Grafo interactivo.
 
 ## Secciones del dashboard
@@ -37,10 +37,10 @@ Explorar un catálogo de repositorios de IA mediante:
 
 ## Artefactos usados
 
-* `artifacts/W10/repos_with_pca_kmeans_w10.csv`
-* `notebooks/artifacts/W12/w12_edge_list.csv`
-* `notebooks/artifacts/W12/w12_centrality_ranking.csv`
-* `notebooks/artifacts/W12/w12_pagerank_vs_stars.csv`
+* `artifacts/recommendation/repos_clustered.csv`
+* `artifacts/graph/edge_list.csv`
+* `artifacts/graph/centrality_ranking.csv`
+* `artifacts/graph/pagerank_vs_stars.csv`
 
 ## Ejecución
 

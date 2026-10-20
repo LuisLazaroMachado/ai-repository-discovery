@@ -1,11 +1,11 @@
 {
-  "timestamp": "2026-07-10T08:25:18.742907+00:00",
+  "timestamp": "2026-10-20T23:08:40.456429+00:00",
   "files_validated": [
-    "C:\\Users\\HP\\Desktop\\Big-data\\bd-project\\data\\processed\\repos_clean.csv",
-    "C:\\Users\\HP\\Desktop\\Big-data\\bd-project\\artifacts\\W10\\repos_with_pca_kmeans_w10.csv",
-    "C:\\Users\\HP\\Desktop\\Big-data\\bd-project\\notebooks\\artifacts\\W12\\w12_edge_list.csv",
-    "C:\\Users\\HP\\Desktop\\Big-data\\bd-project\\notebooks\\artifacts\\W12\\w12_centrality_ranking.csv",
-    "C:\\Users\\HP\\Desktop\\Big-data\\bd-project\\notebooks\\artifacts\\W12\\w12_pagerank_vs_stars.csv"
+    "D:\\Proyectos_Code\\ai-repository-discovery\\data\\processed\\repos_clean.csv",
+    "D:\\Proyectos_Code\\ai-repository-discovery\\artifacts\\recommendation\\repos_clustered.csv",
+    "D:\\Proyectos_Code\\ai-repository-discovery\\artifacts\\graph\\edge_list.csv",
+    "D:\\Proyectos_Code\\ai-repository-discovery\\artifacts\\graph\\centrality_ranking.csv",
+    "D:\\Proyectos_Code\\ai-repository-discovery\\artifacts\\graph\\pagerank_vs_stars.csv"
   ],
   "catalog_rows": 3034,
   "graph_edges": 24787,
