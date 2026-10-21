@@ -13,10 +13,10 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 CATALOG_PATH = PROJECT_ROOT / "data" / "processed" / "repos_clean.csv"
-W10_PATH = PROJECT_ROOT / "artifacts" / "W10" / "repos_with_pca_kmeans_w10.csv"
-EDGE_LIST_PATH = PROJECT_ROOT / "artifacts" / "W12" / "w12_edge_list.csv"
-CENTRALITY_PATH = PROJECT_ROOT / "artifacts" / "W12" / "w12_centrality_ranking.csv"
-PAGERANK_STARS_PATH = PROJECT_ROOT / "artifacts" / "W12" / "w12_pagerank_vs_stars.csv"
+CLUSTERED_CATALOG_PATH = PROJECT_ROOT / "artifacts" / "recommendation" / "repos_clustered.csv"
+EDGE_LIST_PATH = PROJECT_ROOT / "artifacts" / "graph" / "edge_list.csv"
+CENTRALITY_PATH = PROJECT_ROOT / "artifacts" / "graph" / "centrality_ranking.csv"
+PAGERANK_STARS_PATH = PROJECT_ROOT / "artifacts" / "graph" / "pagerank_vs_stars.csv"
 REPORT_PATH = PROJECT_ROOT / "artifacts" / "pipeline" / "pipeline_report.json"
 
 REQUIRED_CATALOG_COLUMNS = [
@@ -45,7 +45,7 @@ def _fail(message: str) -> None:
 def _validate_required_files() -> None:
     required_paths = [
         CATALOG_PATH,
-        W10_PATH,
+        CLUSTERED_CATALOG_PATH,
         EDGE_LIST_PATH,
         CENTRALITY_PATH,
         PAGERANK_STARS_PATH,
@@ -197,7 +197,7 @@ def main() -> int:
         _validate_required_files()
         report["files_validated"] = [
             str(CATALOG_PATH),
-            str(W10_PATH),
+            str(CLUSTERED_CATALOG_PATH),
             str(EDGE_LIST_PATH),
             str(CENTRALITY_PATH),
             str(PAGERANK_STARS_PATH),

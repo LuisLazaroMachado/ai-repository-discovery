@@ -6,3 +6,11 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 .streamlit/secrets.toml
+
+# --- added by restructure_project.py
+data/interim/
+*.npy
+.DS_Store
+.vscode/
+.idea/
+_to_review/
