@@ -1,9 +1,3 @@
-matplotlib
-plotly
-seaborn
-missingno
-tensorflow
-keras
-jupyter
-ipykernel
-ipywidgets
+# Tests y CI
+-r requirements.txt
+pytest>=8.0

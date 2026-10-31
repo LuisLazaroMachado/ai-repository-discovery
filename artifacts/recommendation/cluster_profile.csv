@@ -1,0 +1,6 @@
+cluster_kmeans,cluster_nombre,repositorios,estrellas_mediana,estrellas_max,dias_sin_commit_mediana,antiguedad_dias_mediana,stars_por_dia_mediana,lenguaje_principal
+0,Herramientas de IA modernas,1255,1580.0,54137.0,201.0,1115.0,1.69,Python
+1,Proyectos establecidos y educativos,930,1928.5,48642.0,1021.0,2892.0,0.68,Python
+2,Ecosistema LLM emergente,788,3460.5,63290.0,44.0,1717.5,2.21,Python
+3,Proyectos masivos e influyentes,56,70742.5,194936.0,0.0,1336.0,54.69,Python
+4,Repos virales recientes,5,50401.0,170357.0,1.0,25.0,2016.04,Python

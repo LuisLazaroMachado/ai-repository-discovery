@@ -1,0 +1,7 @@
+# Para ejecutar los notebooks 01-05 (el notebook 02 descarga un modelo de embeddings)
+-r requirements.txt
+jupyter>=1.0
+ipykernel>=6.29
+ipywidgets>=8.1
+seaborn>=0.13
+sentence-transformers>=2.7
