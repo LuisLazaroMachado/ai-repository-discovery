@@ -1,0 +1,4 @@
+variante,repositorios,clúster más pequeño,silhouette,Híbrido Precision@10,Híbrido NDCG@10,Contenido Precision@10,nota
+Dataset limpio (publicado),3034,5,0.205,0.7726,0.7849,0.7652,"Valores vacíos imputados (lenguaje='Unknown', descripción='No description'); estrellas/forks sin log en PCA."
+Sin imputar vacíos (se descartan los repos incompletos),2745,5,0.207,0.7548,0.7717,0.7576,"Se pierden 289 repositorios (9.5%). Otro catálogo, otras consultas: comparación aproximada."
+"Estrellas, forks y estrellas/día en escala log (PCA y K-means)",3034,437,0.181,0.7842,0.7971,0.7652,Mismo catálogo y mismas consultas; solo cambia la escala de las variables con cola pesada.

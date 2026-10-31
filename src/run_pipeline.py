@@ -1,3 +1,11 @@
+"""Valida de punta a punta los artefactos y servicios que consume el dashboard.
+
+    python src/run_pipeline.py
+
+No descarga datos de GitHub (eso es `src/ingest.py`) ni modifica artefactos: comprueba que
+todo lo que necesita el dashboard existe y funciona, y escribe artifacts/pipeline/pipeline_report.json
+con rutas relativas al proyecto.
+"""
 from __future__ import annotations
 
 import json
@@ -5,259 +13,126 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-import pandas as pd
-
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-CATALOG_PATH = PROJECT_ROOT / "data" / "processed" / "repos_clean.csv"
-CLUSTERED_CATALOG_PATH = PROJECT_ROOT / "artifacts" / "recommendation" / "repos_clustered.csv"
-EDGE_LIST_PATH = PROJECT_ROOT / "artifacts" / "graph" / "edge_list.csv"
-CENTRALITY_PATH = PROJECT_ROOT / "artifacts" / "graph" / "centrality_ranking.csv"
-PAGERANK_STARS_PATH = PROJECT_ROOT / "artifacts" / "graph" / "pagerank_vs_stars.csv"
-REPORT_PATH = PROJECT_ROOT / "artifacts" / "pipeline" / "pipeline_report.json"
+from src import common as c  # noqa: E402
 
-REQUIRED_CATALOG_COLUMNS = [
-    "nombre",
-    "descripcion",
-    "lenguaje",
-    "stars",
-    "forks",
-    "topics",
-    "dias_sin_commit",
-    "antiguedad_dias",
-    "num_topics",
-    "ratio_forks_stars",
-    "stars_por_dia",
+REQUIRED_FILES = [
+    c.CATALOG_PATH, c.CLUSTERED_CATALOG_PATH, c.EVAL_SUMMARY_PATH, c.EVAL_DETAIL_PATH,
+    c.STRONG_CASES_PATH, c.FAILURE_CASES_PATH, c.ABLATION_PATH, c.DATA_QUALITY_PATH,
+    c.ROBUSTNESS_PATH, c.CLUSTER_PROFILE_PATH, c.EDGE_LIST_PATH, c.CENTRALITY_PATH, c.PAGERANK_STARS_PATH,
 ]
+REQUIRED_CATALOG_COLUMNS = [
+    "nombre", "descripcion", "lenguaje", "stars", "forks", "topics", "dias_sin_commit",
+    "antiguedad_dias", "num_topics", "ratio_forks_stars", "stars_por_dia", "cluster_kmeans", "cluster_nombre",
+]
+MIN_CATALOG_ROWS = 3000
+MIN_GRAPH_EDGES = 20000
+QUERY_REPOSITORY = "huggingface/transformers"
+GRAPH_REPOSITORY = "tensorflow/tensorflow"
+
+
+def _relative(path: Path) -> str:
+    return path.relative_to(PROJECT_ROOT).as_posix()
 
 
 def _ok(message: str) -> None:
     print(f"[OK] {message}")
 
 
-def _fail(message: str) -> None:
-    print(f"[ERROR] {message}")
-
-
-def _validate_required_files() -> None:
-    required_paths = [
-        CATALOG_PATH,
-        CLUSTERED_CATALOG_PATH,
-        EDGE_LIST_PATH,
-        CENTRALITY_PATH,
-        PAGERANK_STARS_PATH,
-    ]
-
-    missing = [str(path) for path in required_paths if not path.exists()]
+def _validate_files() -> None:
+    missing = [_relative(p) for p in REQUIRED_FILES if not p.exists()]
     if missing:
         raise FileNotFoundError(
-            "Faltan archivos requeridos para la demo:\n- " + "\n- ".join(missing)
+            "Faltan archivos requeridos (genera los de recomendación con `python -m src.build_artifacts` "
+            "y los del grafo con el notebook 05):\n- " + "\n- ".join(missing)
         )
 
 
-def _validate_catalog() -> pd.DataFrame:
-    from src.recommender import load_catalog
+def _validate_recommenders() -> dict:
+    from src.recommender import METHODS, prepare_recommender, recommend, recommend_by_preferences
 
-    catalog = load_catalog()
-    if len(catalog) < 3000:
-        raise ValueError(f"El catálogo tiene {len(catalog)} filas y se esperaban al menos 3000.")
+    state = prepare_recommender()
+    catalog = state["catalog"]
+    if len(catalog) < MIN_CATALOG_ROWS:
+        raise ValueError(f"El catálogo tiene {len(catalog)} filas y se esperaban al menos {MIN_CATALOG_ROWS}.")
+    missing = [col for col in REQUIRED_CATALOG_COLUMNS if col not in catalog.columns]
+    if missing:
+        raise ValueError("Faltan columnas en el catálogo: " + ", ".join(missing))
+    if QUERY_REPOSITORY not in set(catalog["nombre"]):
+        raise KeyError(f"No se encontró el repositorio de prueba: {QUERY_REPOSITORY}")
 
-    missing_columns = [column for column in REQUIRED_CATALOG_COLUMNS if column not in catalog.columns]
-    if missing_columns:
-        raise ValueError("Faltan columnas obligatorias en el catálogo: " + ", ".join(missing_columns))
+    report = {"catalog_rows": len(catalog), "methods": {}}
+    for method in METHODS:
+        result = recommend(QUERY_REPOSITORY, method, top_n=5, recommender=state)
+        if len(result) != 5:
+            raise ValueError(f"{method}: se esperaban 5 resultados y se obtuvieron {len(result)}.")
+        if QUERY_REPOSITORY in set(result["Repositorio recomendado"]):
+            raise ValueError(f"{method}: incluyó el repositorio de consulta.")
+        report["methods"][method] = result["Repositorio recomendado"].tolist()
 
-    return catalog
-
-
-def _prepare_recommender(catalog: pd.DataFrame):
-    from src.recommender import prepare_recommender
-
-    recommender = prepare_recommender(catalog)
-    required_keys = [
-        "catalog",
-        "content_matrix",
-        "content_similarity",
-        "latent_matrix",
-        "latent_similarity",
-        "clusters",
-        "popularity_score",
-        "activity_score",
-        "growth_score",
-    ]
-    missing_keys = [key for key in required_keys if key not in recommender]
-    if missing_keys:
-        raise ValueError("El recomendador no devolvió las claves esperadas: " + ", ".join(missing_keys))
-
-    catalog_len = len(recommender["catalog"])
-    if catalog_len != len(catalog):
-        raise ValueError("El catálogo preparado no coincide con el catálogo de entrada.")
-
-    return recommender
-
-
-def _validate_hybrid_recommender(recommender) -> pd.DataFrame:
-    from src.recommender import recommend_hybrid
-
-    catalog = recommender["catalog"]
-    query = "huggingface/transformers"
-    if query not in set(catalog["nombre"].astype(str)):
-        raise KeyError(f"No se encontró el repositorio de prueba: {query}")
-
-    recommendations = recommend_hybrid(query, top_n=5, recommender=recommender)
-    if len(recommendations) != 5:
-        raise ValueError(f"Se esperaban 5 resultados y se obtuvieron {len(recommendations)}.")
-
-    if query in set(recommendations["Repositorio recomendado"].astype(str)):
-        raise ValueError("La recomendación híbrida incluyó el repositorio de consulta.")
-
-    print(
-        "Repos recomendados: "
-        + ", ".join(recommendations["Repositorio recomendado"].astype(str).tolist())
+    prefs = recommend_by_preferences(
+        language="Python", topics=["computer-vision"], min_stars=1000,
+        max_days_without_commit=180, top_n=5, recommender=state,
     )
-    return recommendations
+    report["preferences_rows"] = int(len(prefs))
+    return report
 
 
-def _validate_preferences_recommender(recommender) -> pd.DataFrame:
-    from src.recommender import recommend_by_preferences
+def _validate_evaluation() -> dict:
+    import pandas as pd
 
-    results = recommend_by_preferences(
-        language="Python",
-        topics=["computer-vision"],
-        min_stars=1000,
-        max_days_without_commit=180,
-        top_n=5,
-        recommender=recommender,
-    )
-    print(f"Resultados por preferencias: {len(results)}")
-    return results
+    summary = pd.read_csv(c.EVAL_SUMMARY_PATH)
+    if summary.empty or "Precision@10" not in summary.columns:
+        raise ValueError("offline_evaluation_summary.csv está vacío o sin Precision@10.")
+    return {row["model"]: round(float(row["Precision@10"]), 4) for _, row in summary.iterrows()}
 
 
-def _validate_graph():
+def _validate_graph() -> dict:
     from src.graph_service import (
-        build_interactive_subgraph,
-        load_centrality_ranking,
-        load_graph_edges,
-        load_pagerank_vs_stars,
+        build_interactive_subgraph, load_centrality_ranking, load_graph_edges, load_pagerank_vs_stars,
     )
 
     edges = load_graph_edges()
-    if len(edges) <= 20000:
-        raise ValueError(f"El grafo tiene {len(edges)} aristas y se esperaban más de 20000.")
-
-    centrality = load_centrality_ranking()
-    pagerank_vs_stars = load_pagerank_vs_stars()
-
-    if centrality.empty:
-        raise ValueError("El ranking de centralidad está vacío.")
-    if pagerank_vs_stars.empty:
-        raise ValueError("La comparación PageRank vs estrellas está vacía.")
-
-    graph_html = ""
-    graph_name = "tensorflow/tensorflow"
-    graph_payload = build_interactive_subgraph(
-        selected_repository=graph_name,
-        max_neighbors=8,
-        min_weight=4,
-    )
-    graph_html = graph_payload.get("html", "")
-    if not graph_html or not graph_html.strip():
+    if len(edges) <= MIN_GRAPH_EDGES:
+        raise ValueError(f"El grafo tiene {len(edges)} aristas y se esperaban más de {MIN_GRAPH_EDGES}.")
+    if load_centrality_ranking().empty or load_pagerank_vs_stars().empty:
+        raise ValueError("Las tablas de centralidad o PageRank vs estrellas están vacías.")
+    payload = build_interactive_subgraph(GRAPH_REPOSITORY, max_neighbors=8, min_weight=4)
+    if not payload.get("html", "").strip():
         raise ValueError("El HTML del grafo interactivo está vacío.")
-
-    return {
-        "edges": len(edges),
-        "centrality_rows": len(centrality),
-        "pagerank_vs_stars_rows": len(pagerank_vs_stars),
-        "subgraph_nodes": graph_payload.get("graph_stats", {}).get("subgrafo_nodos", 0),
-        "subgraph_edges": graph_payload.get("graph_stats", {}).get("subgrafo_aristas", 0),
-        "selected_repository": graph_name,
-    }
-
-
-def _write_report(payload: dict) -> None:
-    REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    REPORT_PATH.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    stats = payload.get("graph_stats", {})
+    return {"edges": len(edges), "subgraph_nodes": stats.get("subgrafo_nodos", 0), "subgraph_edges": stats.get("subgrafo_aristas", 0)}
 
 
 def main() -> int:
-    report = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "files_validated": [],
-        "catalog_rows": None,
-        "graph_edges": None,
-        "recommender_status": "pending",
-        "preferences_status": "pending",
-        "graph_status": "pending",
-        "errors": [],
-    }
-
+    report = {"timestamp": datetime.now(timezone.utc).isoformat(), "files_validated": [], "errors": []}
     try:
-        _validate_required_files()
-        report["files_validated"] = [
-            str(CATALOG_PATH),
-            str(CLUSTERED_CATALOG_PATH),
-            str(EDGE_LIST_PATH),
-            str(CENTRALITY_PATH),
-            str(PAGERANK_STARS_PATH),
-        ]
+        _validate_files()
+        report["files_validated"] = [_relative(p) for p in REQUIRED_FILES]
         _ok("Archivos validados")
 
-        catalog = _validate_catalog()
-        report["catalog_rows"] = len(catalog)
-        _ok("Dataset validado")
+        report["recommenders"] = _validate_recommenders()
+        _ok(f"Recomendadores validados ({', '.join(report['recommenders']['methods'])})")
 
-        recommender = _prepare_recommender(catalog)
-        _ok("Recomendador preparado")
+        report["evaluation_precision_at_10"] = _validate_evaluation()
+        _ok("Evaluación offline disponible")
 
-        hybrid_results = _validate_hybrid_recommender(recommender)
-        report["recommender_status"] = {
-            "status": "ok",
-            "rows": int(len(hybrid_results)),
-            "query": "huggingface/transformers",
-            "top_names": hybrid_results["Repositorio recomendado"].astype(str).tolist(),
-        }
-        _ok("Recomendación híbrida validada")
-
-        preferences_results = _validate_preferences_recommender(recommender)
-        report["preferences_status"] = {
-            "status": "ok",
-            "rows": int(len(preferences_results)),
-            "query": {
-                "language": "Python",
-                "topics": ["computer-vision"],
-                "min_stars": 1000,
-                "max_days_without_commit": 180,
-            },
-        }
-        _ok("Búsqueda por preferencias validada")
-
-        graph_status = _validate_graph()
-        report["graph_edges"] = graph_status["edges"]
-        report["graph_status"] = {
-            "status": "ok",
-            "selected_repository": graph_status["selected_repository"],
-            "edges": graph_status["edges"],
-            "centrality_rows": graph_status["centrality_rows"],
-            "pagerank_vs_stars_rows": graph_status["pagerank_vs_stars_rows"],
-            "subgraph_nodes": graph_status["subgraph_nodes"],
-            "subgraph_edges": graph_status["subgraph_edges"],
-        }
+        report["graph"] = _validate_graph()
         _ok("Grafo validado")
-
-        _write_report(report)
-        _ok("Pipeline completado")
-        return 0
-
-    except Exception as error:
+        status = 0
+    except Exception as error:  # el reporte registra el motivo y el proceso termina con código 1
         report["errors"].append(str(error))
-        try:
-            _write_report(report)
-        except Exception as report_error:
-            _fail(f"No se pudo escribir el reporte: {report_error}")
-        _fail(str(error))
-        return 1
+        print(f"[ERROR] {error}")
+        status = 1
+
+    c.PIPELINE_REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    c.PIPELINE_REPORT_PATH.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+    if status == 0:
+        _ok("Pipeline completado")
+    return status
 
 
 if __name__ == "__main__":
